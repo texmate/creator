@@ -1,23 +1,38 @@
-use iced::widget::{Button, Column, Container, Text, TextInput};
-use iced::{Element, Sandbox, Settings};
+use iced::widget::{Button, Column, Container, container, Rule, scrollable, Text, TextInput};
+use iced::{Element, Sandbox, Settings, window};
+
+mod json_writer;
 
 pub fn main() -> iced::Result {
-    Creator::run(Settings::default())
+    let settings = Settings {
+        window: window::Settings {
+            min_size: Some((700, 400)),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    Creator::run(settings)
 }
 
 #[derive(Debug, Clone)]
 enum Message {
-    TextInputChanged(String),
+    PCBFilenameInputChanged(String),
+    PCBNameInputChanged(String),
     SaveClicked,
     AddComponent,
-    ComponentInputChanged { value: String, id: usize },
+
+    CountInputChanged { value: String, id: usize },
+    ThresholdInputChanged { value: String, id: usize },
+    FilenameInputChanged { value: String, id: usize },
 }
 
 struct Creator {
-    input: String,
-    //components: Vec<component::Component>,
-    component_num: i32, // Keeps how many components are on this board. 
-    component_inputs: Vec<String>, // All the values of the inputs. 
+    pcb_filename: String,
+    pcb_name: String,
+    component_num: i32,            // Keeps how many components are on this board.
+    threshold_inputs: Vec<String>, // All the values of the inputs.
+    count_inputs: Vec<String>,     // All the values of the inputs.
+    filename_inputs: Vec<String>,  // All the values of the inputs.
 }
 
 impl Sandbox for Creator {
@@ -26,8 +41,11 @@ impl Sandbox for Creator {
     fn new() -> Self {
         Self {
             component_num: 0,
-            input: String::new(),
-            component_inputs: Vec::new(),
+            pcb_name: String::new(),
+            pcb_filename: String::new(),
+            threshold_inputs: Vec::new(),
+            count_inputs: Vec::new(),
+            filename_inputs: Vec::new(),
         }
     }
 
@@ -37,11 +55,19 @@ impl Sandbox for Creator {
 
     fn update(&mut self, message: Message) {
         match message {
-            Message::TextInputChanged(x) => self.input = x,
+            Message::PCBFilenameInputChanged(x) => self.pcb_filename = x,
+            Message::PCBNameInputChanged(x) => self.pcb_name = x,
             Message::SaveClicked => println!("Clicked"),
             Message::AddComponent => add_component(self),
-            Message::ComponentInputChanged { value, id } => {
-                self.component_inputs[id] = value;
+            Message::CountInputChanged { value, id } => {
+                self.count_inputs[id] = value;
+                println!("HHHH");
+            }
+            Message::ThresholdInputChanged { value, id } => {
+                self.threshold_inputs[id] = value;
+            }
+            Message::FilenameInputChanged { value, id } => {
+                self.filename_inputs[id] = value;
             }
         }
     }
@@ -64,9 +90,28 @@ impl Sandbox for Creator {
             .horizontal_alignment(iced::alignment::Horizontal::Left)
             .vertical_alignment(iced::alignment::Vertical::Top);
 
-        let pcb_name_input: TextInput<Message> =
-            TextInput::new("Enter the name of the printed circuit board", &self.input)
-                .on_input(Message::TextInputChanged);
+        let pcb_name_input: TextInput<Message> = TextInput::new(
+            "Enter the name of the printed circuit board",
+            &self.pcb_name,
+        )
+        .on_input(Message::PCBNameInputChanged);
+
+        let pcb_name_column: Column<Message> = Column::new()
+            .push(pcb_name_help)
+            .push(pcb_name_input)
+            .padding(5);
+        content = content.push(pcb_name_column);
+
+        // PCB Filename column.
+        let pcb_name_help: Text = Text::new("Filename of the PCB")
+            .horizontal_alignment(iced::alignment::Horizontal::Left)
+            .vertical_alignment(iced::alignment::Vertical::Top);
+
+        let pcb_name_input: TextInput<Message> = TextInput::new(
+            "Enter filename to golden sample of the whole PCB",
+            &self.pcb_filename,
+        )
+        .on_input(Message::PCBFilenameInputChanged);
 
         let pcb_name_column: Column<Message> = Column::new()
             .push(pcb_name_help)
@@ -75,22 +120,79 @@ impl Sandbox for Creator {
         content = content.push(pcb_name_column);
 
         // The dynamic list of components.
-
         let mut components: Column<Message> = Column::new();
         for current_num in 0..self.component_num {
+            // Loop through the IDs
+            let mut this_component: Column<Message> = Column::new();
+            // The IDs are the same as 0 thru component_num. Random IDs would be much hard to implement.
             let id = current_num as usize;
 
-            println!("{}", id);
-            // Create a text input. Use a closure to pass the id of the the text input when stuff is typed in.
-            let res: TextInput<'_, Message> = TextInput::new(
-                "Enter the name of the printed circuit board",
-                &self.component_inputs[id],
-            ) // Now that its created, deal with the text updates. 
-            .on_input(move |new_value| Message::ComponentInputChanged {
+            // Divider. The padding is for extra space on top.
+            this_component =
+                this_component.push(Container::new(Rule::horizontal(5)).padding([15, 0, 15, 0]));
+
+            let title: Text = Text::new(format!("Component {}", current_num))
+                .width(iced::Length::Fill)
+                .size(20)
+                .horizontal_alignment(iced::alignment::Horizontal::Center);
+            this_component = this_component.push(title);
+
+            // Filename
+            let component_image_help: Text = Text::new("Filename")
+                .horizontal_alignment(iced::alignment::Horizontal::Left)
+                .vertical_alignment(iced::alignment::Vertical::Top);
+            this_component = this_component.push(component_image_help);
+
+            // Create a text input for the filename. Use a closure to pass the id of the the text input when stuff is typed in.
+            let component_image_path: TextInput<'_, Message> = TextInput::new(
+                "Enter the path to the sample image of the component",
+                &self.filename_inputs[id],
+            ) // Now that its created, deal with the text updates.
+            .on_input(move |new_value| Message::FilenameInputChanged {
                 value: new_value.clone(),
                 id: id,
             });
-            components = components.push(res);
+            this_component = this_component.push(component_image_path);
+
+            // Threshold
+            let component_threshold_help: Text = Text::new("Sensitivity Threshold")
+                .horizontal_alignment(iced::alignment::Horizontal::Left)
+                .vertical_alignment(iced::alignment::Vertical::Top);
+            this_component = this_component.push(component_threshold_help);
+
+            // Create a text input. Use a closure to pass the id of the the text input when stuff is typed in.
+            let component_threshold: TextInput<'_, Message> = TextInput::new(
+                "Enter how similar the board components need to be with the source component images",
+                &self.threshold_inputs[id],
+            ) // Now that its created, deal with the text updates.
+            .on_input(move |new_value| Message::ThresholdInputChanged {
+                value: new_value.clone(),
+                id: id,
+            });
+            this_component = this_component.push(component_threshold);
+
+            // Count
+            let component_count_help: Text = Text::new("Component Count")
+                .horizontal_alignment(iced::alignment::Horizontal::Left)
+                .vertical_alignment(iced::alignment::Vertical::Top);
+            this_component = this_component.push(component_count_help);
+
+            // Create a text input. Use a closure to pass the id of the the text input when stuff is typed in.
+            let component_count: TextInput<'_, Message> = TextInput::new(
+                "Enter the number of components of this type should be on the board",
+                &self.count_inputs[id],
+            ) // Now that its created, deal with the text updates.
+            .on_input(move |new_value| Message::CountInputChanged {
+                value: new_value.clone(),
+                id: id,
+            });
+            this_component = this_component.push(component_count);
+
+            // Add some padding to indicate a new type of column.
+            this_component = this_component.padding([0, 10, 0, 10]);
+
+            // Everything has been stacked into a column. Put in the main column for components.
+            components = components.push(this_component);
         }
 
         content = content.push(components);
@@ -117,11 +219,24 @@ impl Sandbox for Creator {
             .width(iced::Length::Fill);
         content = content.push(button_container);
 
-        content.into()
+        // Max width. 
+        content = content.max_width(800);
+
+        let scrollable = scrollable(container(content)
+            .width(iced::Length::Fill)
+            .center_x());
+
+        container(scrollable).height(iced::Length::Fill).center_y().into()
+
+        
+        //scroll.into()
     }
 }
 
 fn add_component(app: &mut Creator) {
     app.component_num += 1;
-    app.component_inputs.push(String::from(""));
+
+    app.threshold_inputs.push(String::from(""));
+    app.count_inputs.push(String::from(""));
+    app.filename_inputs.push(String::from(""));
 }
