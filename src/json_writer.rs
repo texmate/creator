@@ -18,6 +18,7 @@ pub fn write_to_json(
     threshold_inputs: Vec<String>,
     count_inputs: Vec<String>,
     filename_inputs: Vec<String>,
+    filename: String,
 ) -> std::io::Result<()> {
     // Create an empty vector to hold the Component objects
     let mut components: Vec<Component> = Vec::new();
@@ -39,7 +40,7 @@ pub fn write_to_json(
     let json_data = format!("{{\"components\": {}}}", json_string);
 
     // Write the JSON data to a file
-    let mut file = File::create("components.json")?;
+    let mut file = File::create(filename)?;
     file.write_all(json_data.as_bytes())?;
 
     Ok(())

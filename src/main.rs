@@ -1,5 +1,5 @@
-use iced::widget::{Button, Column, Container, container, Rule, scrollable, Text, TextInput};
-use iced::{Element, Sandbox, Settings, window};
+use iced::widget::{container, scrollable, Button, Column, Container, Rule, Text, TextInput};
+use iced::{window, Element, Sandbox, Settings};
 
 mod json_writer;
 
@@ -29,6 +29,8 @@ enum Message {
 struct Creator {
     pcb_filename: String,
     pcb_name: String,
+    save_button_text: String,
+
     component_num: i32,            // Keeps how many components are on this board.
     threshold_inputs: Vec<String>, // All the values of the inputs.
     count_inputs: Vec<String>,     // All the values of the inputs.
@@ -43,6 +45,7 @@ impl Sandbox for Creator {
             component_num: 0,
             pcb_name: String::new(),
             pcb_filename: String::new(),
+            save_button_text: String::from("Save"),
             threshold_inputs: Vec::new(),
             count_inputs: Vec::new(),
             filename_inputs: Vec::new(),
@@ -57,11 +60,20 @@ impl Sandbox for Creator {
         match message {
             Message::PCBFilenameInputChanged(x) => self.pcb_filename = x,
             Message::PCBNameInputChanged(x) => self.pcb_name = x,
-            Message::SaveClicked => println!("Clicked"),
+            Message::SaveClicked => {
+                json_writer::write_to_json(
+                    self.threshold_inputs.clone(),
+                    self.count_inputs.clone(),
+                    self.filename_inputs.clone(),
+                    String::from("./component.json"),
+                )
+                .expect("Coudn't save JSON file.");
+
+                self.save_button_text = "Saved".to_string();
+            }
             Message::AddComponent => add_component(self),
             Message::CountInputChanged { value, id } => {
                 self.count_inputs[id] = value;
-                println!("HHHH");
             }
             Message::ThresholdInputChanged { value, id } => {
                 self.threshold_inputs[id] = value;
@@ -124,7 +136,7 @@ impl Sandbox for Creator {
         for current_num in 0..self.component_num {
             // Loop through the IDs
             let mut this_component: Column<Message> = Column::new();
-            // The IDs are the same as 0 thru component_num. Random IDs would be much hard to implement.
+            // The IDs are the same as 0 thru component_num. Random IDs would be much harder to implement.
             let id = current_num as usize;
 
             // Divider. The padding is for extra space on top.
@@ -194,7 +206,6 @@ impl Sandbox for Creator {
             // Everything has been stacked into a column. Put in the main column for components.
             components = components.push(this_component);
         }
-
         content = content.push(components);
 
         // The add new component button column
@@ -209,27 +220,24 @@ impl Sandbox for Creator {
         content = content.push(add_container);
 
         // Save button
-        let save_button: Button<Message> = Button::new("Save")
+        let save_button: Button<Message> = Button::new(self.save_button_text.as_str())
             .on_press(Message::SaveClicked)
             .padding([10, 40, 10, 40]);
         let button_container = Container::new(save_button)
             .height(iced::Length::Fill)
-            .align_y(iced::alignment::Vertical::Bottom)
             .center_x()
             .width(iced::Length::Fill);
         content = content.push(button_container);
 
-        // Max width. 
+        // Max width.
         content = content.max_width(800);
 
-        let scrollable = scrollable(container(content)
-            .width(iced::Length::Fill)
-            .center_x());
+        let scrollable = scrollable(container(content).width(iced::Length::Fill).center_x());
 
-        container(scrollable).height(iced::Length::Fill).center_y().into()
-
-        
-        //scroll.into()
+        container(scrollable)
+            .height(iced::Length::Fill)
+            .center_y()
+            .into()
     }
 }
 
