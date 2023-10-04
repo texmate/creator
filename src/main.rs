@@ -1,5 +1,6 @@
 use iced::widget::{container, scrollable, Button, Column, Container, Rule, Text, TextInput};
 use iced::{window, Element, Sandbox, Settings};
+use native_dialog::FileDialog;
 
 mod json_writer;
 
@@ -61,11 +62,25 @@ impl Sandbox for Creator {
             Message::PCBFilenameInputChanged(x) => self.pcb_filename = x,
             Message::PCBNameInputChanged(x) => self.pcb_name = x,
             Message::SaveClicked => {
+                let path = FileDialog::new()
+                    .set_location("~/Documents")
+                    .add_filter("JSON File", &["json"])
+                    .show_save_single_file()
+                    .unwrap_or(Option::None);
+
+                let path = match path {
+                    Some(path) => path,
+                    None => return,
+                };
+
+                let path = path.to_string_lossy();
+
                 json_writer::write_to_json(
                     self.threshold_inputs.clone(),
                     self.count_inputs.clone(),
                     self.filename_inputs.clone(),
-                    String::from("./component.json"),
+                    self.pcb_name.clone(),
+                    String::from(path),
                 )
                 .expect("Coudn't save JSON file.");
 
