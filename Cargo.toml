@@ -2,6 +2,8 @@
 name = "creator"
 version = "0.1.0"
 edition = "2021"
+description = "Generate configuration files for Texmate's AOI system"
+authors = ["Alan Beveridge <adgbeveridge@proton.me>"]
 
 [dependencies]
 iced = "0.10"
